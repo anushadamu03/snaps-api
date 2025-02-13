@@ -2,29 +2,22 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const router = express.Router();
+const db = require("../db"); 
 
-// Your routes go here
-router.get('/tags', (req, res) => {
-      const filePath = path.join(__dirname, '../data/tags.json');
-    
-      // Read the JSON file
-      fs.readFile(filePath, 'utf8', (err, data) => {
-        if (err) {
-          console.error('Error reading JSON file:', err);
-          return res.status(500).json({ error: 'Failed to load data.' });
-        }
-    
-        try {
-          // Parse the JSON content
-          const tags = JSON.parse(data);
-          res.json(tags);
-        } catch (parseErr) {
-          console.error('Error parsing JSON:', parseErr);
-          res.status(500).json({ error: 'Invalid JSON format.' });
-        }
-      });
-    });
 
-    
+
+router.get('/tags', async (req, res) => {
+  try {
+    const tags = await db('tags').select('name'); 
+    const tagNames = tags.map(tag => tag.name); 
+
+    res.json(tagNames);
+  } catch (error) {
+    console.error('Error fetching tags:', error);
+    res.status(500).json({ error: 'Failed to retrieve tags.' });
+  }
+});
+
+
 
 module.exports = router;
