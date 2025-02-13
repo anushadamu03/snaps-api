@@ -21,10 +21,10 @@ exports.seed = async function (knex) {
   const formattedComments = photos.flatMap((photo) =>
     photo.comments.map((comment) => ({
       id: comment.id,
-      photo_id: photo.id, // ✅ Correctly link to the photo's ID
+      photo_id: photo.id, // Correctly link to the photo's ID
       name: comment.name,
       comment: comment.comment,
-      timestamp: new Date(comment.timestamp).getTime(), // ✅ Ensure correct timestamp format
+      timestamp: new Date(comment.timestamp).getTime(), //  Ensure correct timestamp format
     }))
   );
 

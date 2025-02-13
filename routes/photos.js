@@ -2,7 +2,7 @@ const express = require("express");
 const fs = require("fs");
 const path = require("path");
 const router = express.Router();
-
+const { v4: uuidv4 } = require('uuid'); // Add this at the top
 const db = require("../db"); 
 router.get("/photos", async (req, res) => {
   try {
@@ -16,7 +16,7 @@ router.get("/photos", async (req, res) => {
         "photos.likes",
         "photos.timestamp",
         "photos.tags",
-        "comments.id as comment_id", // Alias for comments.id
+        "comments.id as comment_id", //  Alias for comments.id
         "comments.name as commenter",
         "comments.photo_id as comment_photo_id", // Avoid confusion
         "comments.comment",
@@ -28,26 +28,26 @@ router.get("/photos", async (req, res) => {
     const photoMap = {};
     photos.forEach((photo) => {
       if (!photoMap[photo.photos_id]) {
-        // Use correct alias
+        //  Use correct alias
         photoMap[photo.photos_id] = {
-          id: photo.photos_id, // ✅ Use correct alias
+          id: photo.photos_id, // Use correct alias
           photo: photo.photo,
           photoDescription: photo.photoDescription,
           photographer: photo.photographer,
           likes: photo.likes,
           timestamp: photo.timestamp,
-          tags: photo.tags, // Handle null safely
+          tags:photo.tags || "[]", // Handle null safely
           comments: [],
         };
       }
 
       // If there's a comment, add it to the comments array
       if (photo.comment_id && photo.comment_photo_id === photo.photos_id) {
-        //  Ensure correct matching
+        // Ensure correct matching
         photoMap[photo.photos_id].comments.push({
           id: photo.comment_id,
           name: photo.commenter,
-          photo_id: photo.comment_photo_id, //  Use correct reference
+          photo_id: photo.comment_photo_id, // Use correct reference
           comment: photo.comment,
           timestamp: photo.comment_timestamp,
         });
@@ -121,7 +121,7 @@ router.get("/photos/:id/comments", async (req, res) => {
     // Fetch only the comments related to the photo
     const comments = await db("comments")
       .select("id as id", "name as name", "comment", "timestamp")
-      .where({ photo_id: photoId });
+      .where({ photo_id: photoId }).orderBy("id", "desc"); // Order comments by ID in descending order;
 
     res.status(200).json({ comments });
   } catch (error) {
@@ -129,6 +129,55 @@ router.get("/photos/:id/comments", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch comments." });
   }
 });
+
+
+
+router.post('/photos/:id/comments', async (req, res) => {
+  const photoId = req.params.id;
+  const { name, comment, timestamp } = req.body;
+
+  if (!name || !comment || !timestamp) {
+      return res.status(400).json({ error: 'Incomplete comment data.' });
+  }
+
+  try {
+      // Check if the photo exists
+      const photo = await db('photos').where({ id: photoId }).first();
+      if (!photo) {
+          return res.status(404).json({ error: 'Photo not found.' });
+      }
+
+      // Insert the new comment (ensure `photo_id` is included)
+      const newComment = {
+          id: uuidv4(),
+          photo_id: photoId, 
+          name,
+          comment,
+          timestamp
+      };
+
+      await db('comments').insert(newComment);
+      console.log("Comment inserted successfully!");
+
+      // Fetch updated comments for the photo
+      const updatedComments = await db('comments').where({ photo_id: photoId });
+
+      // Attach updated comments to the photo object
+      const photoWithComments = {
+          ...photo,
+          comments: updatedComments
+      };
+
+      console.log(photoWithComments)
+
+      res.status(201).json({ message: 'Comment added successfully.', photo: photoWithComments });
+  } catch (error) {
+      console.error('Database error:', error);
+      res.status(500).json({ error: 'Failed to add comment.', details: error.message });
+  }
+});
+
+
 
 module.exports = router;
 
@@ -142,130 +191,3 @@ module.exports = router;
 
 
 
-
-
-
-// -------------------------------------------------------old
-
-// Your routes go here
-// router.get("/photos", (req, res) => {
-//   const filePath = path.join(__dirname, "../data/photos.json");
-
-//   // Read the JSON file
-//   fs.readFile(filePath, "utf8", (err, data) => {
-//     if (err) {
-//       console.error("Error reading JSON file:", err);
-//       return res.status(500).json({ error: "Failed to load data." });
-//     }
-
-//     try {
-//       // Parse the JSON content
-//       const tags = JSON.parse(data);
-//       res.json(tags);
-//     } catch (parseErr) {
-//       console.error("Error parsing JSON:", parseErr);
-//       res.status(500).json({ error: "Invalid JSON format." });
-//     }
-//   });
-// });
-
-// router.get("/photos/:id", (req, res) => {
-//   const filePath = path.join(__dirname, "../data/photos.json");
-//   const photoId = req.params.id; // Get the ID from the request parameter
-
-//   // Read the JSON file
-//   fs.readFile(filePath, "utf8", (err, data) => {
-//     if (err) {
-//       console.error("Error reading JSON file:", err);
-//       return res.status(500).json({ error: "Failed to load data." });
-//     }
-
-//     try {
-//       const photos = JSON.parse(data); // Parse JSON file
-//       const photo = photos.find((item) => item.id === photoId); // Find the object with matching ID
-
-//       if (!photo) {
-//         return res.status(404).json({ error: "Photo not found." });
-//       }
-
-//       res.json(photo); // Return the matched object
-//     } catch (parseErr) {
-//       console.error("Error parsing JSON:", parseErr);
-//       res.status(500).json({ error: "Invalid JSON format." });
-//     }
-//   });
-// });
-
-
-// router.get("/photos/:id/comments", (req, res) => {
-//   const filePath = path.join(__dirname, "../data/photos.json");
-//   const photoId = req.params.id;
-
-//   fs.readFile(filePath, "utf8", (err, data) => {
-//     if (err) {
-//       console.error("Error reading JSON file:", err);
-//       return res.status(500).json({ error: "Failed to load data." });
-//     }
-
-//     try {
-//       const photos = JSON.parse(data);
-//       const photo = photos.find((item) => item.id === photoId);
-
-//       if (!photo) {
-//         return res.status(404).json({ error: "Photo not found." });
-//       }
-
-//       res.status(200).json({ comments: photo.comments });
-//     } catch (parseErr) {
-//       console.error("Error parsing JSON:", parseErr);
-//       res.status(500).json({ error: "Invalid JSON format." });
-//     }
-//   });
-// });
-
-
-
-// ----wrong---
-
-// router.post('/photos/:id/comments', (req, res) => {
-//     const filePath = path.join(__dirname, '../data/photos.json');
-//     const photoId = req.params.id; // Get the photo ID from the URL
-//     const newComment = req.body; // Get the new comment from the request body
-//   console.log("newComment==",newComment)
-//     // Read the JSON file
-//     fs.readFile(filePath, 'utf8', (err, data) => {
-//       if (err) {
-//         console.error('Error reading JSON file:', err);
-//         return res.status(500).json({ error: 'Failed to load data.' });
-//       }
-
-//       try {
-//         const photos = JSON.parse(data); // Parse JSON file
-//         const photo = photos.find(item => item.id === photoId); // Find the photo by ID
-
-//         if (!photo) {
-//           return res.status(404).json({ error: 'Photo not found.' });
-//         }
-
-//         if (!newComment.name || !newComment.comment || !newComment.id || !newComment.timestamp) {
-//           return res.status(400).json({ error: 'Incomplete comment data.' });
-//         }
-
-//         // Add the new comment to the comments array
-//         photo.comments.push(newComment);
-
-//         // Save the updated JSON back to the file
-//         fs.writeFile(filePath, JSON.stringify(photos, null, 2), writeErr => {
-//           if (writeErr) {
-//             console.error('Error writing to JSON file:', writeErr);
-//             return res.status(500).json({ error: 'Failed to update data.' });
-//           }
-
-//           res.status(201).json({ message: 'Comment added successfully.', photo });
-//         });
-//       } catch (parseErr) {
-//         console.error('Error parsing JSON:', parseErr);
-//         res.status(500).json({ error: 'Invalid JSON format.' });
-//       }
-//     });
-//   });

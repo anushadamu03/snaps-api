@@ -37,6 +37,6 @@ exports.seed = async function (knex) {
     await knex("photos").insert(formattedPhotos);
   }
 
-  console.log("✅ Photos seeded successfully!");
+  console.log("Photos seeded successfully!");
 };
 

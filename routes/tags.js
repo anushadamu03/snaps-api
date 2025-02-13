@@ -21,4 +21,3 @@ router.get('/tags', async (req, res) => {
 
 
 module.exports = router;
-

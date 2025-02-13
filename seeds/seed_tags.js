@@ -18,5 +18,3 @@ exports.seed = async function (knex) {
   // Insert tags into the table
   await knex("tags").insert(tags.map((tag) => ({ name: tag })));
 };
-
-
